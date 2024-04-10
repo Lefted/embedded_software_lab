@@ -4,16 +4,16 @@
 #include <iostream>
 #include <algorithm>
 
-std::vector<unsigned int> parseTokens(const std::string &line)
+std::vector<int> parseTokens(const std::string &line)
 {
 	std::istringstream iss(line);
 	std::string token;
-	std::vector<unsigned int> tokens;
+	std::vector<int> tokens;
 	while (std::getline(iss, token, ' ') && tokens.size() < 1023)
 	{
 		try
 		{
-			unsigned int value = std::stoul(token);
+			int value = std::stoi(token);
 			tokens.push_back(value);
 		}
 		catch (const std::invalid_argument &ia)
@@ -35,6 +35,42 @@ std::vector<unsigned int> parseTokens(const std::string &line)
 		throw std::runtime_error("Invalid number of tokens");
 	}
 	return tokens;
+}
+
+std::vector<bool> generateChipSeq(std::vector<bool> &genA, std::vector<bool> &genB, const std::vector<unsigned int> &cons)
+{
+	std::vector<bool> chipSeq;
+	for (auto i = 0; i < 1023; i++)
+	{
+		const auto nextB = genB.at(1) ^ genB.at(2) ^ genB.at(5) ^ genB.at(7) ^ genB.at(8) ^ genB.at(9);
+		const auto rotated = genB.at(cons.at(0) - 1) ^ genB.at(cons.at(1) - 1);
+		const auto res = genA.at(9) ^ rotated;
+		const auto nextA = genA.at(2) ^ genA.at(9);
+
+		// rotate right
+		std::rotate(genA.rbegin(), genA.rbegin() + 1, genA.rend());
+		std::rotate(genB.rbegin(), genB.rbegin() + 1, genB.rend());
+		// overwrite
+		genA.at(0) = nextA;
+		genB.at(0) = nextB;
+
+		chipSeq.push_back(res);
+		// printf("%d", res);
+	}
+	// printf("\n");
+	return chipSeq;
+}
+
+int calcCrossCorr(const std::vector<int> &sumSignals, const std::vector<bool> &chipSeq, const unsigned int offset)
+{
+	int sum = 0;
+	for (auto i = 0; i < 1023; i++)
+	{
+		const auto chip = chipSeq.at(i);
+		const auto signal = sumSignals.at(i + offset);
+		sum += (chip ? 1 : -1) * signal;
+	}
+	return sum;
 }
 
 int main(int argc, char *argv[])
@@ -59,42 +95,41 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	std::vector<unsigned int> sumSignals = parseTokens(line);
+	std::vector<int> sumSignals = parseTokens(line);
 
 	// Gold Sequence
 	std::vector<std::vector<bool>> goldCodes;
 	std::vector<std::vector<unsigned int>> cons = {{2, 6}, {3, 7}, {4, 8}, {5, 9}, {1, 9}, {2, 10}, {1, 8}, {2, 9}, {3, 10}, {2, 3}, {3, 4}, {5, 6}, {6, 7}, {7, 8}, {8, 9}, {9, 10}, {1, 4}, {2, 5}, {3, 6}, {4, 7}, {5, 8}, {6, 9}, {1, 3}, {4, 6}};
-
 	for (auto j = 0; j < 24; j++)
 	{
-		std::vector<bool> genA;
-		std::vector<bool> genB;
-		for (auto i = 0; i < 10; i++)
-		{
-			genA.push_back(true);
-			genB.push_back(true);
-		}
+		std::vector<bool> genA(10, true);
+		std::vector<bool> genB(10, true);
 
-		std::vector<bool> chipSeq;
+		std::vector<bool> chipSeq = generateChipSeq(genA, genB, cons[j]);
 		goldCodes.push_back(chipSeq);
+	}
 
-		for (auto i = 0; i < 12; i++)
+	for (auto satellite = 7; satellite < 24; satellite++)
+	{
+		std::vector<bool> chipSeq = goldCodes[satellite];
+		for (auto offset = 0; offset < 1023; offset++)
 		{
-			const auto nextB = genB.at(1) ^ genB.at(2) ^ genB.at(5) ^ genB.at(7) ^ genB.at(8) ^ genB.at(9);
-			const auto rotated = genB.at(cons.at(j).at(0) - 1) ^ genB.at(cons.at(j).at(1) - 1);
-			const auto res = genA.at(9) ^ rotated;
-			const auto nextA = genA.at(2) ^ genA.at(9);
-
-			// rotate right
-			std::rotate(genA.rbegin(), genA.rbegin() + 1, genA.rend());
-			std::rotate(genB.rbegin(), genB.rbegin() + 1, genB.rend());
-			// overwrite
-			genA.at(0) = nextA;
-			genB.at(0) = nextB;
-
-			chipSeq.push_back(res);
-			printf("%d", res);
+			if (offset % 50 == 0)
+			{
+				printf("Satellite: %d, Offset: %d\n", satellite, offset);
+			}
+			for (auto chipIdx = 0; chipIdx < 1023; chipIdx++)
+			{
+				const auto crossCorr = calcCrossCorr(sumSignals, chipSeq, offset);
+				if (crossCorr > 828 || crossCorr < -828)
+				{
+					printf("%d", crossCorr);
+				}
+				if (offset % 50 == 0 && chipIdx % 50 == 0)
+				{
+					printf("Cross Corr: %d\n", crossCorr);
+				}
+			}
 		}
-		printf("\n");
 	}
 }
