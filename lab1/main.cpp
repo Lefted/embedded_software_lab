@@ -96,6 +96,14 @@ int main(int argc, char *argv[])
 	}
 
 	std::vector<int> sumSignals = parseTokens(line);
+	for (int i = 0; i < 1023; i++)
+	{
+		if (sumSignals.at(i) != sumSignals.at(i + 1023))
+		{
+			std::cerr << "Error: Signal is not repeated" << std::endl;
+			return 1;
+		}
+	}
 
 	// Gold Sequence
 	std::vector<std::vector<bool>> goldCodes;
@@ -109,26 +117,16 @@ int main(int argc, char *argv[])
 		goldCodes.push_back(chipSeq);
 	}
 
-	for (auto satellite = 7; satellite < 24; satellite++)
+	for (auto satellite = 0; satellite < 24; satellite++)
 	{
 		std::vector<bool> chipSeq = goldCodes[satellite];
 		for (auto offset = 0; offset < 1023; offset++)
 		{
-			if (offset % 50 == 0)
+			const auto crossCorr = calcCrossCorr(sumSignals, chipSeq, offset);
+			if (crossCorr > 828 || crossCorr < -828)
 			{
-				printf("Satellite: %d, Offset: %d\n", satellite, offset);
-			}
-			for (auto chipIdx = 0; chipIdx < 1023; chipIdx++)
-			{
-				const auto crossCorr = calcCrossCorr(sumSignals, chipSeq, offset);
-				if (crossCorr > 828 || crossCorr < -828)
-				{
-					printf("%d", crossCorr);
-				}
-				if (offset % 50 == 0 && chipIdx % 50 == 0)
-				{
-					printf("Cross Corr: %d\n", crossCorr);
-				}
+				// printf("%d\n", crossCorr);
+				printf("Satellite %d has sent bit %d (delta = %d)\n", satellite + 1, crossCorr > 828 ? 1 : 0, offset + 1);
 			}
 		}
 	}
